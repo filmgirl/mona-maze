@@ -102,7 +102,9 @@ runs the Node tests, builds the candidate, and exercises it inside the real
 Commit Cabinet before deployment is allowed. The deployment job depends on that
 check and publishes the exact tested HTML as `index.html`, without rebuilding.
 Pull requests (including forks) run the same gate with read-only repository
-permissions and never deploy. Pages and OIDC write permissions are limited to
+permissions and never deploy. Publishing is restricted to `filmgirl/mona-maze`;
+pushes and manual runs in forks cannot upload a Pages artifact or deploy.
+Pages and OIDC write permissions are limited to
 the main-only deployment job. Source files and test fixtures are not published.
 
 **Published cabinet smoke** then checks the actual game and
@@ -185,8 +187,9 @@ EXPECTED_GAME_SHA256="$(shasum -a 256 dist/mona-merge-maze.html | cut -d ' ' -f 
 Without `EXPECTED_GAME_SHA256`, this is explicitly a functional live baseline,
 not proof that a particular revision deployed. CI always supplies the digest.
 Live requests are not mocked. Both suites fail on uncaught exceptions, console
-errors, failed local/published requests, and HTTP errors. Only navigation
-requests canceled by deliberate iframe detachment are exempted.
+errors, failed local/published requests, and HTTP errors. Only aborted child-frame
+navigation requests whose frame is actually detached when health is asserted
+are exempted; attached-frame and top-level cancellations still fail.
 
 To update the cabinet pin, review the upstream change, update both
 `tests/cabinet/pin.json` and the full checkout SHA in `.github/workflows/pages.yml`,

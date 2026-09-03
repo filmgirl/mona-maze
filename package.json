@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node build.mjs",
     "start": "node server.mjs",
-    "test": "node --test engine.test.js music.test.js timing.test.js",
+    "test": "node --test engine.test.js music.test.js timing.test.js tests/cabinet/health.test.js",
     "cabinet:setup": "node tests/cabinet/setup.mjs",
     "cabinet:serve": "node tests/cabinet/server.mjs",
     "test:cabinet": "playwright test --config=playwright.config.js",

@@ -2,6 +2,7 @@ import { expect } from '@playwright/test';
 
 export function watchHealth(page, origins) {
   const errors = [];
+  const failedRequests = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => {
     if (message.type() === 'error') errors.push(message.text());
@@ -12,11 +13,17 @@ export function watchHealth(page, origins) {
     }
   });
   page.on('requestfailed', request => {
-    // Detaching an iframe deliberately cancels its outstanding document requests.
-    if (request.failure()?.errorText === 'net::ERR_ABORTED' && request.isNavigationRequest()) return;
-    if (origins.includes(new URL(request.url()).origin)) errors.push(`${request.failure()?.errorText} ${request.url()}`);
+    if (origins.includes(new URL(request.url()).origin)) failedRequests.push(request);
   });
-  return () => expect(errors, 'Uncaught errors, console errors, or missing required assets').toEqual([]);
+  return () => {
+    // Request failure can precede framedetached; check the final lifecycle state.
+    const failures = failedRequests.filter(request => !(request.failure()?.errorText === 'net::ERR_ABORTED'
+      && request.isNavigationRequest()
+      && request.frame() !== page.mainFrame()
+      && request.frame().isDetached()))
+      .map(request => `${request.failure()?.errorText} ${request.url()}`);
+    expect([...errors, ...failures], 'Uncaught errors, console errors, or missing required assets').toEqual([]);
+  };
 }
 
 export async function ready(game) {
