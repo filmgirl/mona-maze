@@ -97,11 +97,111 @@ change so the standalone download stays current.
 ## Deploy
 
 Push to `main` to deploy automatically to GitHub Pages, or run **Deploy game to
-GitHub Pages** manually from the Actions tab. The workflow installs the locked
-dependencies, runs the tests, builds the standalone game, and publishes only
-that HTML as `index.html`. Source files and test fixtures are not part of the
-public site. The online version includes the same embedded font, icon licenses,
-and offline-ready game as the standalone download.
+GitHub Pages** manually from the Actions tab on `main`. **Cabinet compatibility**
+runs the Node tests, builds the candidate, and exercises it inside the real
+Commit Cabinet before deployment is allowed. The deployment job depends on that
+check and publishes the exact tested HTML as `index.html`, without rebuilding.
+Pull requests (including forks) run the same gate with read-only repository
+permissions and never deploy. Publishing is restricted to `filmgirl/mona-maze`;
+pushes and manual runs in forks cannot upload a Pages artifact or deploy.
+Pages and OIDC write permissions are limited to
+the main-only deployment job. Source files and test fixtures are not published.
+
+**Published cabinet smoke** then checks the actual game and
+<https://filmgirl.github.io/arcade/#game/mona-maze>. It checks the served HTML's
+SHA-256 against the tested artifact, a nonblank WebGL board, start, movement,
+camera, and pause inside the iframe, not just an iframe load event. There are
+at most three smoke attempts, separated by 10 and 20 seconds, to allow Pages
+propagation; continued failure fails the workflow. This detects a broken
+publication but does not roll it back.
+
+GitHub Pages must use **GitHub Actions** as its publishing source; branch-based
+Pages would bypass this deployment gate. Mona's repository already uses Actions.
+To block merging incompatible PRs as well as deploying them, an administrator
+must separately make **Cabinet compatibility** a required status check on
+`main` using a ruleset or branch protection, after the check has run. Adding
+this workflow does not configure that repository setting.
+
+## Cabinet compatibility
+
+Run the exact candidate gate locally with Node.js 22 or newer:
+
+```sh
+npm ci
+npx playwright install chromium
+npm run cabinet:setup
+npm test
+npm run build
+npm run test:cabinet
+```
+
+CI uses `npx playwright install --with-deps chromium` on Ubuntu. The Playwright
+suite has **no retries**, uses one Chromium worker with software WebGL, and
+retains traces/screenshots on failure in ignored `test-results/`. Inspect a
+failure with `npx playwright show-trace test-results/<test>/trace.zip`.
+
+The harness checks out the real static <https://github.com/filmgirl/arcade> at
+`18b9d013a9591c9d97348f21023f875eb2a7630b` into ignored `.playwright-cabinet/`.
+It does not install or build the cabinet. The loopback-only server serves the
+unaltered cabinet at `/arcade/` and the freshly built
+`dist/mona-merge-maze.html` at `/mona-maze/`, on the **same origin**, as in
+production. The tests assert the iframe URL and compare the served candidate
+bytes with the built file. They never use the deployed game as the PR gate.
+
+Only the HTTP response for the fixture's `games.json` is changed: Mona's URL
+becomes `../mona-maze/`, and an extra **Mona lifecycle fixture** entry points
+to the same build to exercise switching without depending on another live
+game. The tracked production catalog and cabinet files remain untouched.
+Other catalog entries remain intact but are not launched by this suite.
+
+To inspect the harness manually after setup and building:
+
+```sh
+npm run cabinet:serve
+# http://127.0.0.1:4261/arcade/
+```
+
+Set `CABINET_PORT=4263` on either the server or test command if needed.
+Playwright starts and stops its own server and refuses to reuse a running
+server. The server snapshots the candidate at startup; rebuild and restart
+after source changes.
+
+Coverage includes mouse/keyboard launch and iframe focus, Space staying in
+the game, nonblank rendered pixels, WASD/arrows (including backward movement),
+V camera, P/Escape pause/resume, theme/music/SFX toggles, resizing, accessible
+focus exit, reload/return/switch/back navigation with detached old frames,
+and touch input at 320px/390px. It checks document overflow and scrolls to
+external game/cabinet controls to ensure they are not clipped or covered.
+Focus mode is entered before starting because Mona intentionally pauses on
+blur. Tests use DOM state, score changes, and rendered pixels: no game-state
+backdoor, cropped document, or runtime messaging bridge.
+
+Run a read-only baseline against production separately:
+
+```sh
+npm run test:live
+# Also require production to match your current built file:
+EXPECTED_GAME_SHA256="$(shasum -a 256 dist/mona-merge-maze.html | cut -d ' ' -f 1)" npm run test:live
+```
+
+Without `EXPECTED_GAME_SHA256`, this is explicitly a functional live baseline,
+not proof that a particular revision deployed. CI always supplies the digest.
+Live requests are not mocked. Both suites fail on uncaught exceptions, console
+errors, failed local/published requests, and HTTP errors. Only aborted child-frame
+navigation requests whose frame is actually detached when health is asserted
+are exempted; attached-frame and top-level cancellations still fail.
+
+To update the cabinet pin, review the upstream change, update both
+`tests/cabinet/pin.json` and the full checkout SHA in `.github/workflows/pages.yml`,
+remove only the disposable `.playwright-cabinet/` directory, and rerun setup and
+the entire gate. The server rejects a dirty checkout or a mismatched revision.
+Do not substitute a live arcade checkout or an unpinned branch.
+
+Limitations: this is Chromium desktop/touch emulation, not physical-device,
+Safari/Firefox, cross-origin sandbox, native-fullscreen, or audible-output
+certification. The existing music unit tests cover the audio lifecycle; the
+browser suite checks audio controls. WebGL color diversity is a startup
+sanity check, not a pixel-perfect visual regression test.
 
 ## Source layout
 
@@ -116,6 +216,7 @@ and offline-ready game as the standalone download.
 | `server.mjs` | Loopback-only local preview server |
 | `.github/workflows/pages.yml` | Test, build, and deploy the game to GitHub Pages |
 | `*.test.js` | Node.js tests for gameplay, timing, and audio lifecycle |
+| `tests/cabinet/`, `playwright*.config.js` | Pinned real-cabinet candidate gate and published smoke |
 
 ## Credits
 
