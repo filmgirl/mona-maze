@@ -32,8 +32,12 @@ const server = createServer(async (request, response) => {
       body = JSON.stringify({ revision: pin.revision });
       type = 'application/json';
     } else if (pathname.startsWith('/arcade/')) {
-      const file = resolve(root, pathname.slice('/arcade/'.length) || 'index.html');
       const relative = pathname.slice('/arcade/'.length);
+      if (relative.split('/').includes('..')) {
+        response.writeHead(404).end('Not found');
+        return;
+      }
+      const file = resolve(root, relative || 'index.html');
       const allowed = ['index.html', 'styles.css', 'games.json', 'favicon.ico'].includes(relative)
         || relative === '' || relative.startsWith('src/') || relative.startsWith('assets/');
       if (!allowed || !file.startsWith(root + sep) || !(await stat(file)).isFile()) {
