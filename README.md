@@ -5,6 +5,8 @@ and walk through deployment portals to reach the next repository.
 
 ## Play
 
+Play online at **<https://filmgirl.github.io/mona-maze/>**.
+
 Open **[`dist/mona-merge-maze.html`](dist/mona-merge-maze.html)** directly in a
 modern browser. The game, original chiptune soundtrack, and Mona Sans font are
 embedded in this single file. No network connection is required.
@@ -92,6 +94,15 @@ The server reads the built file on every request. Rebuild and refresh after
 editing source. Commit the updated `dist/mona-merge-maze.html` when shipping a
 change so the standalone download stays current.
 
+## Deploy
+
+Push to `main` to deploy automatically to GitHub Pages, or run **Deploy game to
+GitHub Pages** manually from the Actions tab. The workflow installs the locked
+dependencies, runs the tests, builds the standalone game, and publishes only
+that HTML as `index.html`. Source files and test fixtures are not part of the
+public site. The online version includes the same embedded font, icon licenses,
+and offline-ready game as the standalone download.
+
 ## Source layout
 
 | File | Purpose |
@@ -103,6 +114,7 @@ change so the standalone download stays current.
 | `index.html`, `style.css` | Responsive interface and theme tokens |
 | `build.mjs` | Single-file bundling and asset/license embedding |
 | `server.mjs` | Loopback-only local preview server |
+| `.github/workflows/pages.yml` | Test, build, and deploy the game to GitHub Pages |
 | `*.test.js` | Node.js tests for gameplay, timing, and audio lifecycle |
 
 ## Credits
