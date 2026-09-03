@@ -8,10 +8,12 @@ const result = await build({
 const template = await readFile('index.html', 'utf8');
 const css = await readFile('style.css', 'utf8');
 const font = (await readFile('assets/mona-sans.woff2')).toString('base64');
-const mark = (await readFile('assets/mark-github.svg', 'utf8')).replace('<svg ', '<svg aria-hidden="true" fill="currentColor" ');
+const markSvg = await readFile('assets/mark-github.svg', 'utf8');
+const mark = markSvg.replace('<svg ', '<svg aria-hidden="true" fill="currentColor" ');
 const licenses = await readFile('assets/Mona-Sans-OFL.txt', 'utf8') + '\n\n' + await readFile('assets/Octicons-LICENSE.txt', 'utf8');
 const html = template.replace('/* APP_STYLE */', () => css)
   .replace('MONA_SANS_FONT_DATA', () => font)
+  .replace('GITHUB_FAVICON_DATA', () => Buffer.from(markSvg).toString('base64'))
   .replace('<!-- GITHUB_MARK -->', () => mark)
   .replace('<!-- ASSET_LICENSES -->', () => `<script type="text/plain" id="third-party-licenses">${licenses}</script>`)
   .replace('/* APP_SCRIPT */', () => result.outputFiles[0].text.replaceAll('</script', '<\\/script'));
