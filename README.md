@@ -80,6 +80,9 @@ Touch controls and the minimap sit outside the game viewport.
   For direct replay from construction, pass `{ seed, introLayouts: false }`.
 - Best scores and the light/dark preference are saved locally when browser
   storage is available.
+- The lilac/aubergine colorway includes light and dark modes, muted lilac maze
+  walls, and apricot chip pickups. Green commits and blue catchable bugs retain
+  their gameplay colors.
 
 ## Develop
 

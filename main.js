@@ -9,7 +9,7 @@ import { ArcadeMusic } from './music.js';
 import { advanceSimulation, MAX_FRAME_SECONDS } from './timing.js';
 
 const $ = id => document.getElementById(id);
-const paletteKeys = ['bg', 'bg-elevated', 'surface', 'surface-soft', 'text', 'text-soft', 'text-muted', 'border', 'accent', 'success', 'danger', 'warning', 'link', 'accent-fg'];
+const paletteKeys = ['bg', 'bg-elevated', 'surface', 'surface-soft', 'text', 'text-soft', 'text-muted', 'border', 'accent', 'success', 'danger', 'warning', 'link', 'accent-fg', 'wall', 'secondary', 'secondary-fg'];
 function readPalette() {
   const css = getComputedStyle(document.documentElement);
   return Object.fromEntries(paletteKeys.map(k => [k, css.getPropertyValue(`--cp-${k}`).trim()]));
@@ -345,7 +345,7 @@ function makeItem(kind) {
     box(model, 0, .47, -.075, .055, .27, .04, metal, .01);
     box(model, 0, .47, -.075, .24, .05, .04, metal, .01);
   }
-  const caption = label(kind === 'chip' ? `CHIP +${ITEMS.chip.points}` : kind.toUpperCase(), tint, 1.1, .23, C.surface);
+  const caption = label(kind === 'chip' ? `CHIP +${ITEMS.chip.points}` : kind.toUpperCase(), kind === 'chip' ? C['secondary-fg'] : tint, 1.1, .23, kind === 'chip' ? C.secondary : C.surface);
   caption.position.y = 1;
   const pad = new THREE.Mesh(new THREE.RingGeometry(.31, .36, 24), material(tint, { side: THREE.DoubleSide }));
   pad.rotation.x = -Math.PI / 2;
@@ -531,7 +531,8 @@ function makeBoard() {
   const floorGeo = new RoundedBoxGeometry(.93, .035, .93, 1, .04);
   const floors = new THREE.InstancedMesh(floorGeo, material(lightColor), w * h);
   const wallCount = grid.flat().filter(Boolean).length - game.map.pen.bounds.width * game.map.pen.bounds.height;
-  const wallBase = dark ? lightColor : C.accent;
+  // Instance colors carry the wall palette without multiplying by the UI accent.
+  const wallBase = 0xffffff;
   const walls = new THREE.InstancedMesh(new RoundedBoxGeometry(.96, .86, .96, 2, .085), material(wallBase, { metalness: .24, roughness: .38 }), wallCount);
   const caps = new THREE.InstancedMesh(new RoundedBoxGeometry(.83, .04, .83, 1, .035), material(wallBase, { metalness: .4, roughness: .25 }), wallCount);
   const leds = new THREE.InstancedMesh(new THREE.BoxGeometry(.69, .018, .035), material(C.accent, { emissive: C.accent, emissiveIntensity: 1.9 }), wallCount);
@@ -547,7 +548,7 @@ function makeBoard() {
     if (grid[y][x] && !inPen(x, y)) {
       matrix.makeTranslation(x, .42, y);
       walls.setMatrixAt(wi, matrix);
-      const wallColor = new THREE.Color(C.accent).lerp(new THREE.Color(C['bg-elevated']), .35 + ((x + y) % 3) * .08);
+      const wallColor = new THREE.Color(C.wall).lerp(new THREE.Color(C['bg-elevated']), ((x + y) % 3) * .04);
       walls.setColorAt(wi, wallColor);
       matrix.makeTranslation(x, .87, y);
       caps.setMatrixAt(wi, matrix);
@@ -739,7 +740,7 @@ function updateMinimap() {
   const ox = (canvas.width - w * size) / 2;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    if (grid[y][x]) { ctx.fillStyle = C.border; ctx.fillRect(ox + x * size, y * size, size - 1, size - 1); }
+    if (grid[y][x]) { ctx.fillStyle = C.wall; ctx.fillRect(ox + x * size, y * size, size - 1, size - 1); }
   }
   for (const p of game.pellets.values()) {
     ctx.fillStyle = p.power ? C.accent : C.success;
@@ -751,9 +752,9 @@ function updateMinimap() {
   ctx.textBaseline = 'middle';
   for (const item of game.items.values()) {
     const x = ox + (item.x + .5) * size, y = (item.y + .5) * size;
-    ctx.fillStyle = C.surface;
+    ctx.fillStyle = item.kind === 'chip' ? C.secondary : C.surface;
     ctx.fillRect(x - 4.5, y - 5, 9, 10);
-    ctx.fillStyle = color(ITEMS[item.kind].color);
+    ctx.fillStyle = item.kind === 'chip' ? C['secondary-fg'] : color(ITEMS[item.kind].color);
     ctx.fillText(ITEMS[item.kind].symbol, x, y);
   }
   ctx.textBaseline = 'alphabetic';
