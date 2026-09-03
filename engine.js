@@ -1,5 +1,10 @@
 export const DIRECTIONS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 export const CAPTURE_SECONDS = 5;
+export const ITEMS = {
+  chip: { name: 'Computer chip', points: 250, color: '--cp-warning', symbol: 'C' },
+  overclock: { name: 'Overclock', seconds: 6, multiplier: 1.3, color: '--cp-accent', symbol: '+' },
+  firewall: { name: 'Firewall', seconds: 8, grace: 1, color: '--cp-link', symbol: 'F' },
+};
 export const MAPS = [
   { name: 'Contribution garden', branch: 'main', seed: 42, width: 19, height: 17, subtitle: 'Every commit counts.' },
   { name: 'The call stack', branch: 'feature/recursion', seed: 137, width: 21, height: 17, subtitle: 'Find your way out of the function.' },
@@ -28,10 +33,95 @@ function random(seed) {
   };
 }
 
-export function createMap(index) {
+function normalizeSeed(seed) {
+  if (!Number.isSafeInteger(seed)) throw new Error('Run seed must be a safe integer.');
+  return seed >>> 0;
+}
+
+function levelSeed(seed, level, themeSeed) {
+  let value = (seed ^ Math.imul(level, 0x9e3779b9) ^ themeSeed) >>> 0;
+  value = Math.imul(value ^ (value >>> 16), 0x85ebca6b);
+  value = Math.imul(value ^ (value >>> 13), 0xc2b2ae35);
+  return (value ^ (value >>> 16)) >>> 0;
+}
+
+function reachableCells(map) {
+  const { grid, start, exit } = map;
+  const visited = new Set();
+  if (grid[start[1]]?.[start[0]] !== 0) return visited;
+  const queue = [start];
+  visited.add(start.join(','));
+  for (let i = 0; i < queue.length; i++) {
+    const [x, y] = queue[i];
+    for (const [dx, dy] of DIRECTIONS) {
+      const nx = x + dx, ny = y + dy, key = `${nx},${ny}`;
+      if (grid[ny]?.[nx] !== 0 || (nx === exit[0] && ny === exit[1]) || visited.has(key)) continue;
+      visited.add(key);
+      queue.push([nx, ny]);
+    }
+  }
+  return visited;
+}
+
+export function validateMap(map) {
+  const reachable = reachableCells(map);
+  for (let y = 0; y < map.height; y++) {
+    for (let x = 0; x < map.width; x++) {
+      if (x === map.exit[0] && y === map.exit[1]) continue;
+      if (map.grid[y][x] === 0 && !reachable.has(`${x},${y}`)) {
+        throw new Error(`Invalid maze: unreachable cell ${x},${y} with portal locked.`);
+      }
+    }
+  }
+  if (!reachable.has(map.start.join(',')) || !reachable.has(map.pen.release.join(',')) ||
+      !reachable.has(`${map.exit[0]},1`)) {
+    throw new Error('Invalid maze: start, pen release, or exit approach is unreachable.');
+  }
+  return true;
+}
+
+function repairConnectivity(map) {
+  const { grid, width, height, pen } = map;
+  let reachable = reachableCells(map);
+  if (!reachable.size) throw new Error('Cannot repair maze: start is blocked.');
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      if (grid[y][x] || reachable.has(`${x},${y}`)) continue;
+      // Join disconnected components through interior walls, never through the pen or portal.
+      const queue = [[x, y]];
+      const previous = new Map([[`${x},${y}`, null]]);
+      let joined = null;
+      for (let i = 0; i < queue.length && !joined; i++) {
+        const cell = queue[i];
+        for (const [dx, dy] of DIRECTIONS) {
+          const nx = cell[0] + dx, ny = cell[1] + dy, key = `${nx},${ny}`;
+          if (nx < 1 || nx >= width - 1 || ny < 1 || ny >= height - 1 ||
+              (nx >= pen.bounds.x && nx < pen.bounds.x + pen.bounds.width &&
+               ny >= pen.bounds.y && ny < pen.bounds.y + pen.bounds.height) || previous.has(key)) continue;
+          previous.set(key, cell);
+          if (reachable.has(key)) { joined = [nx, ny]; break; }
+          queue.push([nx, ny]);
+        }
+      }
+      if (!joined) throw new Error(`Cannot repair maze component at ${x},${y}.`);
+      while (joined) {
+        grid[joined[1]][joined[0]] = 0;
+        joined = previous.get(joined.join(','));
+      }
+      reachable = reachableCells(map);
+    }
+  }
+  validateMap(map);
+}
+
+export function createMap(index, { level = index + 1, seed = 0 } = {}) {
+  if (!Number.isInteger(index) || !MAPS[index]) throw new Error('Invalid map theme index.');
+  if (!Number.isSafeInteger(level) || level < 1) throw new Error('Level must be a positive safe integer.');
   const config = MAPS[index];
   const { width: w, height: h } = config;
-  const rand = random(config.seed);
+  const runSeed = normalizeSeed(seed);
+  const mapSeed = level <= 2 ? config.seed : levelSeed(runSeed, level, config.seed);
+  const rand = random(mapSeed);
   const grid = Array.from({ length: h }, () => Array(w).fill(1));
   const stack = [[1, 1]];
   grid[1][1] = 0;
@@ -78,7 +168,9 @@ export function createMap(index) {
     }
   }
   grid[exit[1]][exit[0]] = 0;
-  return { ...config, grid, rooms, pen, exit, start: [1, h - 2] };
+  const map = { ...config, seed: mapSeed, level, grid, rooms, pen, exit, start: [1, h - 2] };
+  repairConnectivity(map);
+  return map;
 }
 
 function actor(x, y, direction = 0) {
@@ -86,21 +178,27 @@ function actor(x, y, direction = 0) {
 }
 
 export class Game {
-  constructor(index = 0, onEvent = () => {}) {
+  constructor(index = 0, onEvent = () => {}, { seed = 0 } = {}) {
     this.onEvent = onEvent;
+    this.runSeed = normalizeSeed(seed);
     this.movementMode = 'arcade';
     this.reset(index);
   }
-  reset(index = this.index) {
+  reset(index = this.index, level = index + 1) {
+    this.initializeLevel(index, level);
+  }
+  initializeLevel(index, level, score = 0, lives = 3) {
     this.index = index;
-    this.level = index + 1;
-    this.map = createMap(index);
+    this.level = level;
+    this.map = createMap(index, { level: this.level, seed: this.runSeed });
     this.random = random(this.map.seed + 11);
     this.status = 'ready';
-    this.score = 0;
-    this.lives = 3;
+    this.score = score;
+    this.lives = lives;
     this.elapsed = 0;
     this.power = 0;
+    this.overclock = 0;
+    this.firewall = 0;
     this.combo = 0;
     this.invulnerable = 0;
     this.desired = null;
@@ -117,9 +215,20 @@ export class Game {
     }
     // The fourth power-up sits just above Mona's starting tile.
     this.pellets.set(`1,${h - 3}`, { x: 1, y: h - 3, power: true });
+    this.items = new Map();
+    this.spawns = [[w - 2, 1], [w - 2, h - 2], [1, 1], [w - 4, 1]];
+    const reserved = new Set([...this.spawns, this.map.pen.release, [exit[0], 1]].map(cell => cell.join(',')));
+    const candidates = [...this.pellets.values()].filter(p => !p.power && !reserved.has(`${p.x},${p.y}`));
+    const itemRandom = random(this.map.seed ^ 0xa5a5a5a5);
+    for (const kind of Object.keys(ITEMS)) {
+      const [cell] = candidates.splice(Math.floor(itemRandom() * candidates.length), 1);
+      if (!cell) throw new Error('Invalid maze: not enough cells for optional items.');
+      const key = `${cell.x},${cell.y}`;
+      this.items.set(key, { x: cell.x, y: cell.y, kind });
+      this.pellets.delete(key);
+    }
     this.total = this.pellets.size;
     this.player = actor(...start);
-    this.spawns = [[w - 2, 1], [w - 2, h - 2], [1, 1], [w - 4, 1]];
     this.enemies = this.spawns.map(([x, y], i) => ({
       ...actor(x, y), id: i, cooldown: 0, captured: false, releaseGrace: 0,
     }));
@@ -130,11 +239,7 @@ export class Game {
   }
   nextLevel() {
     if (this.status !== 'won') throw new Error('Enter the unlocked deployment portal before advancing.');
-    const { score, lives, level } = this;
-    this.reset((this.index + 1) % MAPS.length);
-    this.score = score;
-    this.lives = lives;
-    this.level = level + 1;
+    this.initializeLevel((this.index + 1) % MAPS.length, this.level + 1, this.score, this.lives);
     this.start();
   }
   pause() {
@@ -202,6 +307,14 @@ export class Game {
       this.onEvent({ type: 'won' });
       return;
     }
+    const item = this.items.get(key);
+    if (item) {
+      this.items.delete(key);
+      const definition = ITEMS[item.kind];
+      if (item.kind === 'chip') this.score += definition.points;
+      else this[item.kind] = definition.seconds;
+      this.onEvent({ type: 'item', kind: item.kind, key });
+    }
     const pellet = this.pellets.get(key);
     if (!pellet) return;
     this.pellets.delete(key);
@@ -219,8 +332,11 @@ export class Game {
     dt = Math.min(dt, 0.05);
     this.elapsed += dt;
     this.power = Math.max(0, this.power - dt);
+    const boostedSeconds = Math.min(dt, this.overclock);
+    this.overclock = Math.max(0, this.overclock - dt);
+    this.firewall = Math.max(0, this.firewall - dt);
     this.invulnerable = Math.max(0, this.invulnerable - dt);
-    this.move(this.player, dt * 4.4, () => {
+    this.move(this.player, 4.4 * (dt + (ITEMS.overclock.multiplier - 1) * boostedSeconds), () => {
       if (this.canMove(this.player, this.desired)) return this.desired;
       return this.desired === null || this.movementMode === 'first' ? null : this.player.direction;
     }, () => this.collect());
@@ -257,7 +373,18 @@ export class Game {
           });
           this.onEvent({ type: 'enemy', id: enemy.id });
         } else if (!this.invulnerable) {
+          if (this.firewall > 0) {
+            this.firewall = 0;
+            this.invulnerable = ITEMS.firewall.grace;
+            this.onEvent({ type: 'shield-hit', id: enemy.id });
+            continue;
+          }
           this.lives--;
+          this.power = 0;
+          this.overclock = 0;
+          this.firewall = 0;
+          this.combo = 0;
+          this.invulnerable = 0;
           if (!this.lives) {
             this.status = 'over';
             this.onEvent({ type: 'over' });

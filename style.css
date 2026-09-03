@@ -136,6 +136,20 @@ html[data-theme="dark"] {
 .power-inline[data-active="false"] { visibility: hidden; pointer-events: none; }
 .threat-label { min-width: 128px; }
 .power-inline { min-width: 168px; }
+.item-statusbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 24px; padding: 8px 20px; border-bottom: 1px solid var(--cp-border); background: var(--cp-bg-elevated); }
+.pickup-note { font-size: 9px; letter-spacing: .9px; color: var(--cp-text-soft); }
+.item-status { display: inline-flex; align-items: center; gap: 8px; min-width: 204px; font-size: 11px; color: var(--cp-text-soft); font-variant-numeric: tabular-nums; }
+.item-status small { display: block; font-size: 9px; }
+.item-status strong { min-width: 4ch; margin-left: auto; text-align: right; font-size: 12px; }
+.item-status[data-active="true"] { color: var(--cp-text); }
+.item-status[data-active="true"] strong { color: var(--cp-success); }
+.pickup-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 18px; width: 18px; height: 18px; border: 1.5px solid currentColor; font-size: 10px; line-height: 1; }
+.chip-icon { color: var(--cp-warning); border-style: dashed; }
+.battery-icon { color: var(--cp-accent); border-radius: 3px; }
+.shield-icon { color: var(--cp-link); border-radius: 3px 3px 9px 9px; }
+.legend { flex-wrap: wrap; gap: 12px 18px; }
+.controls-hint { flex-shrink: 0; }
+.notice-line { height: 34px; overflow: hidden; }
 #theme[aria-pressed="true"] { color: var(--cp-accent); border-color: var(--cp-accent); }
 #pen-status { white-space: nowrap; min-width: 52px; }
 @media(max-width:650px) {
@@ -143,5 +157,11 @@ html[data-theme="dark"] {
   .topbar .brand svg { width: 28px; height: 28px; }
   .playbar .threat-label { min-width: 116px; }
   .playbar .power-inline { min-width: 156px; }
+  .item-statusbar { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 8px 12px; }
+  .pickup-note { display: none; }
+  .item-status { min-width: 0; gap: 5px; font-size: 10px; }
+  .item-status small { font-size: 8px; }
+  .item-status strong { font-size: 10px; }
+  .notice-line { height: 50px; }
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}

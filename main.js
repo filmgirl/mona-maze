@@ -4,7 +4,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { Game, ENEMIES, enemyAppearance, CAPTURE_SECONDS } from './engine.js';
+import { Game, ENEMIES, ITEMS, enemyAppearance, CAPTURE_SECONDS } from './engine.js';
 import { ArcadeMusic } from './music.js';
 import { advanceSimulation, MAX_FRAME_SECONDS } from './timing.js';
 
@@ -20,7 +20,7 @@ let dark = document.documentElement.dataset.theme === 'dark';
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const stage = $('stage');
 let game, renderer, composer, renderPass, bloomPass, board, mona, mascot, portal, portalLight;
-let ghosts = [], pelletMeshes = new Map(), rings = [], sparks = [], sparkField, ambientPixels, playerHalo, exitRoute;
+let ghosts = [], pelletMeshes = new Map(), itemMeshes = new Map(), rings = [], sparks = [], sparkField, ambientPixels, playerHalo, shieldHalo, boostHalo, exitRoute;
 let view = 'arcade', facing = 0, cameraYaw = 0, lastStatus = '', toastTimer, audio;
 let soundEnabled = true, musicEnabled = true, music, best = 0, previousTime = 0, hudTime = 0, pausedForHelp = false;
 let transitionCountdown = 0, lastPower = false, lastExitReady = false;
@@ -89,14 +89,28 @@ async function activateAudio() {
 }
 function event(e) {
   if (e.key) {
-    const mesh = pelletMeshes.get(e.key);
+    const mesh = e.type === 'item' ? itemMeshes.get(e.key) : pelletMeshes.get(e.key);
     if (mesh) {
       mesh.visible = false;
-      burst(mesh.position.x, mesh.position.z, e.type === 'power' ? C.accent : C.success, e.type === 'power' ? 20 : 5);
+      burst(mesh.position.x, mesh.position.z, e.type === 'item' ? color(ITEMS[e.kind].color) : e.type === 'power' ? C.accent : C.success, e.type === 'pellet' ? 5 : 20);
     }
   }
   if (e.type === 'pellet') tone(500 + (game.score % 5) * 100, .045);
   if (e.type === 'power') { toast('Pull request approved. SUPER MERGE!'); tone(880, .3, 'triangle'); }
+  if (e.type === 'item') {
+    const messages = {
+      chip: `Computer chip collected. +${ITEMS.chip.points} points!`,
+      overclock: `Overclock online. ${ITEMS.overclock.multiplier}x speed for ${ITEMS.overclock.seconds} seconds.`,
+      firewall: `Firewall online. One bug hit blocked, up to ${ITEMS.firewall.seconds} seconds.`,
+    };
+    toast(messages[e.kind]);
+    tone({ chip: 1568, overclock: 784, firewall: 523 }[e.kind], .22, 'triangle');
+  }
+  if (e.type === 'shield-hit') {
+    toast('Firewall absorbed a hit. Shield spent; move clear!');
+    burst(game.player.x, game.player.y, C.link, 18);
+    tone(330, .25, 'sine');
+  }
   if (e.type === 'enemy') {
     toast(`${ENEMIES[e.id].name} captured. Held in the bug pen for ${CAPTURE_SECONDS}s.`);
     burst(game.player.x, game.player.y, C.link, 14);
@@ -231,7 +245,8 @@ function addContactShadow(group, radius) {
 function makeGhost(index) {
   const group = new THREE.Group();
   const body = new THREE.Group();
-  const primary = material(color(ENEMIES[index].color), { metalness: .3, roughness: .3 });
+  // Bug colors change independently; never mutate a material shared with pickups.
+  const primary = new THREE.MeshStandardMaterial({ color: color(ENEMIES[index].color), metalness: .3, roughness: .3 });
   sphere(body, 0, .49, 0, .32, .34, .3, primary);
   box(body, 0, .29, 0, .61, .22, .55, primary, .08);
   for (let i = -1; i <= 1; i++) sphere(body, i * .205, .19, -.02, .103, .12, .25, primary);
@@ -284,16 +299,61 @@ function makeGhost(index) {
 }
 function disposeBoard() {
   if (!board) return;
-  const geometry = new Set(), textures = new Set(), texturedMaterials = new Set();
+  const geometry = new Set(), textures = new Set(), boardMaterials = new Set(materials.values());
   board.traverse(object => {
     if (object.geometry) geometry.add(object.geometry);
-    if (object.material?.map) { textures.add(object.material.map); texturedMaterials.add(object.material); }
-    if (object.userData.disposeMaterial) texturedMaterials.add(object.material);
+    if (object.material) {
+      for (const mat of Array.isArray(object.material) ? object.material : [object.material]) {
+        boardMaterials.add(mat);
+        if (mat.map) textures.add(mat.map);
+      }
+    }
+    if (object.isInstancedMesh) object.dispose();
   });
   geometry.forEach(g => g.dispose());
   textures.forEach(t => t?.dispose());
-  texturedMaterials.forEach(m => m.dispose());
+  boardMaterials.forEach(m => m.dispose());
+  materials.clear();
   scene.remove(board);
+}
+function makeItem(kind) {
+  const group = new THREE.Group(), model = new THREE.Group();
+  group.add(model);
+  const tint = color(ITEMS[kind].color);
+  const shell = material(tint, { emissive: tint, emissiveIntensity: .35, metalness: .55, roughness: .28 });
+  const metal = material(C['text-soft'], { metalness: .7, roughness: .25 });
+  if (kind === 'chip') {
+    box(model, 0, .4, 0, .48, .14, .48, shell, .025);
+    box(model, 0, .49, 0, .25, .05, .25, material(C.text), .015);
+    for (const side of [-1, 1]) for (const offset of [-.15, 0, .15]) {
+      box(model, side * .3, .4, offset, .16, .045, .045, metal, .01);
+      box(model, offset, .4, side * .3, .045, .045, .16, metal, .01);
+    }
+  } else if (kind === 'overclock') {
+    box(model, 0, .42, 0, .32, .5, .22, shell, .045);
+    box(model, 0, .7, 0, .14, .07, .13, metal, .015);
+    const bolt = label('+', C.surface, .24, .24);
+    bolt.position.set(0, .44, -.13);
+    model.add(bolt);
+  } else {
+    const shape = new THREE.Shape();
+    shape.moveTo(-.28, .65); shape.lineTo(0, .76); shape.lineTo(.28, .65);
+    shape.lineTo(.23, .32); shape.lineTo(0, .13); shape.lineTo(-.23, .32); shape.closePath();
+    const shield = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: .09, bevelEnabled: false }), shell);
+    shield.position.z = -.045;
+    model.add(shield);
+    box(model, 0, .47, -.075, .055, .27, .04, metal, .01);
+    box(model, 0, .47, -.075, .24, .05, .04, metal, .01);
+  }
+  const caption = label(kind === 'chip' ? `CHIP +${ITEMS.chip.points}` : kind.toUpperCase(), tint, 1.1, .23, C.surface);
+  caption.position.y = 1;
+  const pad = new THREE.Mesh(new THREE.RingGeometry(.31, .36, 24), material(tint, { side: THREE.DoubleSide }));
+  pad.rotation.x = -Math.PI / 2;
+  pad.position.y = .055;
+  group.add(caption, pad);
+  group.userData.model = model;
+  addContactShadow(model, .3);
+  return group;
 }
 function buildWorldDetails() {
   const { width: w, height: h, exit, rooms } = game.map;
@@ -456,6 +516,7 @@ function updateWorldEffects(time) {
 function makeBoard() {
   disposeBoard();
   pelletMeshes.clear();
+  itemMeshes.clear();
   rings = [];
   sparks = [];
   routeCell = '';
@@ -517,6 +578,12 @@ function makeBoard() {
       rings.push({ ring, mesh });
     }
   }
+  for (const [key, item] of game.items) {
+    const mesh = makeItem(item.kind);
+    mesh.position.set(item.x, 0, item.y);
+    board.add(mesh);
+    itemMeshes.set(key, mesh);
+  }
   const codeWords = game.index === 0 ? ['git push', '< / >', 'main', 'pull request', '{ }', 'git merge'] : ['fn()', 'return 0;', '{ }', 'await', '0110', 'try / catch'];
   const signMaterials = codeWords.map(word => {
     const sign = label(word, C.accent, 1, .25, C.surface);
@@ -549,6 +616,15 @@ function makeBoard() {
   playerHalo = new THREE.Mesh(new THREE.TorusGeometry(.45, .028, 8, 48), material(C.success, { emissive: C.success, emissiveIntensity: 2 }));
   playerHalo.rotation.x = -Math.PI / 2;
   board.add(playerHalo);
+  shieldHalo = new THREE.Mesh(new THREE.SphereGeometry(.55, 20, 12), material(C.link, {
+    wireframe: true, transparent: true, opacity: .23, depthWrite: false,
+  }));
+  board.add(shieldHalo);
+  boostHalo = new THREE.Mesh(new THREE.TorusGeometry(.54, .035, 6, 32), material(color(ITEMS.overclock.color), {
+    emissive: color(ITEMS.overclock.color), emissiveIntensity: 1.2,
+  }));
+  boostHalo.rotation.x = -Math.PI / 2;
+  board.add(boostHalo);
   ghosts = ENEMIES.map((_, i) => {
     const ghost = makeGhost(i);
     addContactShadow(ghost, .32);
@@ -641,9 +717,18 @@ function syncModels(time, dt = 1 / 60) {
       ring.scale.setScalar(1 + Math.sin(time * 3) * .12);
     }
   });
+  if (!reducedMotion) for (const mesh of itemMeshes.values()) {
+    if (!mesh.visible) continue;
+    mesh.userData.model.rotation.y = time * .6;
+    mesh.userData.model.position.y = Math.sin(time * 2) * .04;
+  }
   playerHalo.position.set(game.player.x, .08, game.player.y);
   playerHalo.visible = game.power > 0 || game.invulnerable > 0;
   if (!reducedMotion) playerHalo.scale.setScalar(1 + Math.sin(time * 5) * .08);
+  shieldHalo.position.set(game.player.x, .5, game.player.y);
+  shieldHalo.visible = game.firewall > 0 && view !== 'first';
+  boostHalo.position.set(game.player.x, .065, game.player.y);
+  boostHalo.visible = game.overclock > 0 && view !== 'first';
   updateWorldEffects(time);
 }
 function updateMinimap() {
@@ -660,6 +745,17 @@ function updateMinimap() {
     const radius = p.power ? 2.5 : 1;
     ctx.beginPath(); ctx.arc(ox + (p.x + .5) * size, (p.y + .5) * size, radius, 0, Math.PI * 2); ctx.fill();
   }
+  ctx.font = '800 10px "Mona Sans", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const item of game.items.values()) {
+    const x = ox + (item.x + .5) * size, y = (item.y + .5) * size;
+    ctx.fillStyle = C.surface;
+    ctx.fillRect(x - 4.5, y - 5, 9, 10);
+    ctx.fillStyle = color(ITEMS[item.kind].color);
+    ctx.fillText(ITEMS[item.kind].symbol, x, y);
+  }
+  ctx.textBaseline = 'alphabetic';
   for (const e of game.enemies) {
     if (!e.captured && (e.cooldown > 0 || game.exitReady)) continue;
     const appearance = enemyAppearance(e.id, game.power, e);
@@ -685,7 +781,7 @@ function updateMinimap() {
   ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(4, 4); ctx.lineTo(0, 2); ctx.lineTo(-4, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.restore();
-  $('direction-label').textContent = ['N', 'E', 'S', 'W'][facing];
+  setText('direction-label', ['N', 'E', 'S', 'W'][facing]);
 }
 function saveBest() {
   if (game.score <= best) return;
@@ -711,6 +807,12 @@ function updateUI() {
   }
   $('power-fill').style.width = `${game.power / 8 * 100}%`;
   setText('power-time', `${game.power.toFixed(1)}s`);
+  for (const kind of ['overclock', 'firewall']) {
+    const active = game[kind] > 0;
+    const element = $(`${kind}-status`);
+    if (element.dataset.active !== String(active)) element.dataset.active = String(active);
+    setText(`${kind}-time`, active ? `${game[kind].toFixed(1)}s` : '--');
+  }
   const catchable = game.power > 0 && !game.exitReady;
   setText('threat-label', game.exitReady ? 'Bugs cleared' : catchable ? '+ Blue bugs: CATCH' : '! Bugs: AVOID');
   $('threat-label').classList.toggle('catchable', catchable);
@@ -784,10 +886,10 @@ function start() {
   updateUI();
   stage.focus({ preventScroll: true });
 }
-function reset(index = game.index, immediately = false) {
+function reset(index = game.index, immediately = false, level = index + 1) {
   saveBest();
   held.clear(); facing = 0; cameraYaw = 0; transitionCountdown = 0;
-  game.reset(index);
+  game.reset(index, level);
   $('map').value = String(index);
   makeBoard();
   previousTime = performance.now();
@@ -871,7 +973,7 @@ $('orbit').onclick = () => switchView('arcade');
 $('first').onclick = () => switchView('first');
 $('play').onclick = start;
 $('pause').onclick = () => { pause(); stage.focus({ preventScroll: true }); };
-$('restart').onclick = () => reset();
+$('restart').onclick = () => reset(game.index, false, game.level);
 $('map').onchange = () => reset(Number($('map').value));
 $('resume').onclick = () => {
   if (game.status === 'paused') pause();
@@ -981,7 +1083,7 @@ try {
   composer.addPass(renderPass);
   composer.addPass(bloomPass);
   composer.addPass(new OutputPass());
-  game = new Game(0, event);
+  game = new Game(0, event, { seed: crypto.getRandomValues(new Uint32Array(1))[0] });
   makeBoard();
   updateUI();
   $('play').disabled = false;
