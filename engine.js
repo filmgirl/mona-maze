@@ -1,7 +1,7 @@
 export const DIRECTIONS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 export const CAPTURE_SECONDS = 5;
 export const ITEMS = {
-  chip: { name: 'Computer chip', points: 250, color: '--cp-warning', symbol: 'C' },
+  chip: { name: 'Computer chip', points: 250, color: '--cp-secondary', symbol: 'C' },
   overclock: { name: 'Overclock', seconds: 6, multiplier: 1.3, color: '--cp-accent', symbol: '+' },
   firewall: { name: 'Firewall', seconds: 8, grace: 1, color: '--cp-link', symbol: 'F' },
 };
