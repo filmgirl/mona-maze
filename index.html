@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mona's Merge Maze</title>
+  <script>
+    (() => {
+      const param = new URLSearchParams(window.location.search).get("scoutTheme");
+      const theme =
+        param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <script>
+    try {
+      const savedTheme = localStorage.getItem('mona-merge-maze-theme');
+      if (savedTheme === 'dark' || savedTheme === 'light') document.documentElement.dataset.theme = savedTheme;
+    } catch (error) { console.warn('Theme storage is unavailable.', error); }
+  </script>
+  <style>/* APP_STYLE */</style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Mona's Merge Maze home"><!-- GITHUB_MARK --><span>GitHub<span class="brand-sub"> / arcade</span></span></a>
+      <div class="top-note"><span class="live-dot"></span> A little less work. A little more play.</div>
+      <div class="top-actions"><button id="theme" class="icon-button" aria-pressed="false" title="Toggle dark mode">Dark mode</button><button id="music" class="icon-button" aria-pressed="true" title="Toggle original chiptune soundtrack">Music on</button><button id="sound" class="icon-button" aria-pressed="true" title="Toggle sound effects">SFX on</button><button id="help" class="icon-button" aria-label="How to play">?</button></div>
+    </header>
+    <main>
+      <section class="heading">
+        <div><div class="eyebrow">EAT COMMITS. DODGE BUGS. SHIP IT.</div><h1>Mona's <span>Merge Maze</span><span class="edition">3D</span></h1></div>
+        <div class="view-switch" role="group" aria-label="Camera view"><button id="orbit" aria-pressed="true"><span aria-hidden="true">◈</span> Arcade view</button><button id="first" aria-pressed="false"><span aria-hidden="true">◎</span> First person <kbd>V</kbd></button></div>
+      </section>
+      <section class="game-shell" aria-label="Mona's Merge Maze game">
+        <div class="game-toolbar">
+          <div class="map-control"><span class="branch-icon" aria-hidden="true">⑂</span><div><label for="map">REPOSITORY</label><select id="map"><option value="0">Contribution garden</option><option value="1">The call stack</option></select></div><span class="branch-tag" id="branch">main</span></div>
+          <div class="scoreboard"><div><span>SCORE</span><strong id="score">00000</strong></div><div class="best-stat"><span>BEST</span><strong id="best">00000</strong></div><div><span>LIVES</span><strong id="lives" class="lives" aria-label="3 lives">♥ ♥ ♥</strong></div></div>
+        </div>
+        <div class="playbar">
+          <span class="level-tag" id="level-tag">LEVEL 01 <span>/</span> CONTRIBUTION GARDEN</span>
+          <span class="threat-label" id="threat-label">! Bugs: AVOID</span>
+          <div class="power-inline" id="power" data-active="false" aria-hidden="true"><span>SUPER MERGE</span><div><i id="power-fill"></i></div><b id="power-time">8.0s</b></div>
+          <div class="stage-buttons"><button id="restart" title="Restart level" aria-label="Restart level">↻</button><button id="pause" title="Pause (P)" aria-label="Pause game">Ⅱ</button></div>
+        </div>
+        <div class="launch-strip" id="intro"><div><h2>Small cat. Big repository.</h2><p>Collect commits. Dodge bugs. Find the exit.</p></div><button id="play" class="primary" disabled>Let's ship it <span aria-hidden="true">→</span></button></div>
+        <div class="play-area">
+          <div class="stage" id="stage" tabindex="0" aria-label="3D maze. Use arrow keys or WASD to move. Press V to switch camera and P to pause.">
+            <canvas id="scene" aria-label="3D game board"></canvas>
+            <div class="crosshair" id="crosshair" hidden aria-hidden="true">+</div>
+            <div class="message" id="message" hidden><span class="eyebrow" id="message-kicker">TAKE A BREATHER</span><h2 id="message-title">Paused.</h2><p id="message-detail">Your commits aren't going anywhere.</p><button id="resume" class="primary">Keep going <span>→</span></button></div>
+          </div>
+          <aside class="map-dock" id="minimap-box" hidden aria-label="Repository navigation"><span>REPO MAP <b id="direction-label">N</b></span><canvas id="minimap" width="210" height="170" aria-label="Map showing Mona, commits, and enemies"></canvas><small>▲ danger · ● catchable<br>Follow the green trail to exit.</small></aside>
+        </div>
+        <div class="control-dock">
+          <div class="objective-inline" id="objective"><b id="objective-title">DEPLOY PORTAL / LOCKED</b><span id="objective-detail">Collect every commit to open the north exit.</span></div>
+          <div class="view-meta"><span id="pen-status" title="Captured bugs are held for five seconds before release">Pen 0/4</span><span id="view-label">ORTHOGRAPHIC / 3D</span><span id="compass">N ↑</span></div>
+          <div class="touch-pad" aria-label="Movement controls"><button data-dir="0" aria-label="Move up or forward">↑</button><button data-dir="3" aria-label="Move left or turn left">←</button><button data-dir="2" aria-label="Move down or backward">↓</button><button data-dir="1" aria-label="Move right or turn right">→</button></div>
+          <div class="notice-line" id="toast" role="status" aria-live="polite"></div>
+        </div>
+        <!-- ASSET_LICENSES -->
+        <div class="progress-row"><div><span class="live-dot"></span><b id="collected">0</b><span>/</span><span id="total">0</span> commits collected</div><div class="progress-track"><i id="progress-fill"></i></div><span id="percentage">0%</span></div>
+      </section>
+      <section class="bottom-row"><div class="legend"><span class="legend-title">IN THIS REPO</span><span><i class="dot commit"></i>Commit <small>+10</small></span><span><i class="dot pull"></i>Pull request <small>POWER UP</small></span><span id="bug-legend">Bugs: avoid</span></div><div class="controls-hint" id="controls-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>or arrows to move</span><kbd>P</kbd><span>pause</span></div></section>
+      <footer><span>Made for the love of shipping.</span><span>NO ISSUES WERE CLOSED IN THE MAKING OF THIS GAME.</span></footer>
+    </main>
+  </div>
+  <dialog id="help-dialog"><button id="close-help" class="dialog-close" aria-label="Close instructions">×</button><span class="eyebrow">README.md</span><h2>Welcome to the repo.</h2><p>Guide Mona the Octocat through two code-filled repositories with open plazas. Collect every commit to unlock the <b>DEPLOY portal at the north edge</b>. Bugs disappear and a green trail leads you to the exit. Walk through it to advance automatically, keeping your score and remaining lives. The repositories repeat as you climb through levels.</p><div class="help-grid"><div><h3>Arcade view</h3><p><kbd>WASD</kbd> or arrow keys set your direction. Mona keeps moving; turns are queued for the next junction.</p></div><div><h3>First person</h3><p><kbd>W / ↑</kbd> forward, <kbd>S / ↓</kbd> backward. <kbd>A / ←</kbd> and <kbd>D / →</kbd> turn 90°. Hold to move. The minimap keeps you oriented.</p></div></div><p><kbd>V</kbd> switches views any time. <kbd>P</kbd> or <kbd>Esc</kbd> pauses. Touch controls work in both views.</p><h3>Meet the blockers</h3><div id="enemy-legend"></div><p><b>Exclamation marks mean danger.</b> Avoid every bug unless it turns <b>blue with a + CATCH label and blue ring</b>. Green gems are always collectible commits. Glowing pull requests grant <b>8 seconds of Super Merge</b>; chain bug catches for bigger rewards. When the timer ends, the bugs immediately return to their danger colors and labels.</p><h3>A soundtrack for shipping</h3><p>Original synthesized chiptunes start when you play, change with the level, and pick up during Super Merge. <b>Music</b> and <b>SFX</b> have separate toggles. Music pauses with the game.</p><button id="got-it" class="primary">Got it. Let's ship.</button></dialog>
+  <script>/* APP_SCRIPT */</script>
+</body>
+</html>

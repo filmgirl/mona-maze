@@ -1,0 +1,6 @@
+node_modules/
+.DS_Store
+.playwright*/
+*.log
+browser-fixture.mjs
+dist/browser-fixture.html
