@@ -712,3 +712,71 @@ test('chase distance caching still recomputes only when Mona changes cells', () 
   game.tick(.01);
   assert.equal(calls, 2);
 });
+
+test('new run resets every run state at level one while preserving the camera mode', () => {
+  for (const status of ['ready', 'playing', 'paused', 'won', 'over']) {
+    const game = new Game(1, () => {}, { seed: 10 });
+    game.status = status;
+    game.score = 1234;
+    game.lives = 1;
+    game.level = 12;
+    game.power = 4;
+    game.overclock = 5;
+    game.firewall = 6;
+    game.movementMode = 'first';
+    game.newRun(99);
+    assert.equal(game.runSeed, 99);
+    assert.equal(game.introLayouts, false);
+    assert.equal(game.index, 0);
+    assert.equal(game.level, 1);
+    assert.equal(game.map.level, 1);
+    assert.equal(game.status, 'ready');
+    assert.equal(game.score, 0);
+    assert.equal(game.lives, 3);
+    assert.equal(game.elapsed, 0);
+    assert.equal(game.power + game.overclock + game.firewall, 0);
+    assert.equal(game.movementMode, 'first');
+    assert.equal(game.items.size, 3);
+    assert.equal(game.pellets.size, game.total);
+    assert.deepEqual(game.player.cell, game.map.start);
+    assert.equal(game.desired, null);
+    assert.equal(game.exitReady, false);
+    assert.ok(game.enemies.every(e => !e.captured && !e.releaseGrace && !e.cooldown));
+  }
+});
+
+test('new runs generate distinct, reachable boards immediately and replay deterministically', () => {
+  const signatures = new Set();
+  for (let seed = 1; seed <= 32; seed++) {
+    const game = new Game();
+    game.newRun(seed);
+    const replay = new Game(0, () => {}, { seed, introLayouts: false });
+    for (let level = 1; level <= 2; level++) {
+      assert.equal(game.level, level);
+      assert.equal(game.index, level - 1);
+      assert.deepEqual(game.map, replay.map);
+      assert.deepEqual(game.items, replay.items);
+      assert.notDeepEqual(game.map.grid, createMap(game.index).grid);
+      assert.equal(validateMap(game.map), true);
+      const reachable = game.distances(...game.map.start);
+      for (const key of [...game.pellets.keys(), ...game.items.keys()]) assert.ok(reachable.has(key));
+      signatures.add(JSON.stringify(game.map.grid));
+      const board = structuredClone(game.map), items = structuredClone(game.items);
+      game.reset(game.index, game.level);
+      assert.deepEqual(game.map, board);
+      assert.deepEqual(game.items, items);
+      advance(game);
+      advance(replay);
+    }
+  }
+  assert.equal(signatures.size, 64);
+});
+
+test('an invalid new run seed is rejected before changing the existing run', () => {
+  const game = new Game();
+  const before = structuredClone({ map: game.map, runSeed: game.runSeed, introLayouts: game.introLayouts });
+  assert.throws(() => game.newRun(NaN), /seed/);
+  assert.deepEqual(game.map, before.map);
+  assert.equal(game.runSeed, before.runSeed);
+  assert.equal(game.introLayouts, before.introLayouts);
+});

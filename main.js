@@ -643,7 +643,8 @@ function makeBoard() {
   board.add(marker);
   $('total').textContent = game.total;
   $('branch').textContent = game.map.branch;
-  $('level-tag').innerHTML = `LEVEL ${String(game.level).padStart(2, '0')} <span>/</span> ${game.map.name.toUpperCase()}`;
+  setText('repository-name', game.map.name);
+  setText('level', String(game.level).padStart(2, '0'));
   music?.setLevel(game.level - 1);
   renderer.shadowMap.needsUpdate = true;
   fitCamera();
@@ -851,7 +852,7 @@ function updateUI() {
   const copy = {
     paused: ['WORK IN PROGRESS', 'Paused.', "Your commits aren't going anywhere.", 'Keep going →'],
     won: ['DEPLOYMENT COMPLETE', `Level ${game.level} shipped!`, `${game.score.toLocaleString()} points. Heading to level ${game.level + 1} with your score and lives intact.`, 'Next level now →'],
-    over: ['BUILD FAILED. TRY AGAIN.', 'One more branch?', `${game.score.toLocaleString()} points. Even great developers run into bugs.`, 'Try again →'],
+    over: ['BUILD FAILED. TRY AGAIN.', 'One more branch?', `${game.score.toLocaleString()} points. Start a fresh board at level 1.`, 'New run →'],
   }[status];
   if (copy) {
     $('message-kicker').textContent = copy[0]; $('message-title').textContent = copy[1];
@@ -886,25 +887,27 @@ function start() {
   updateUI();
   stage.focus({ preventScroll: true });
 }
-function reset(index = game.index, immediately = false, level = index + 1) {
+function reset(fresh = false) {
   saveBest();
   held.clear(); facing = 0; cameraYaw = 0; transitionCountdown = 0;
-  game.reset(index, level);
-  $('map').value = String(index);
+  if (fresh) {
+    const seed = crypto.getRandomValues(new Uint32Array(1))[0];
+    game.newRun(seed === game.runSeed ? (seed + 1) >>> 0 : seed);
+  } else game.reset(game.index, game.level);
   makeBoard();
   previousTime = performance.now();
   lastStatus = '';
-  if (immediately) game.start();
+  if (fresh) game.start();
   music?.setPowered(false);
-  if (immediately) void activateAudio();
+  if (fresh) void activateAudio();
   updateUI();
+  if (fresh) toast("New run. Fresh board, level 1, three lives. Let's ship!");
   stage.focus({ preventScroll: true });
 }
 function advanceLevel() {
   saveBest();
   held.clear(); facing = 0; cameraYaw = 0; transitionCountdown = 0;
   game.nextLevel();
-  $('map').value = String(game.index);
   makeBoard();
   previousTime = performance.now();
   music?.setPowered(false);
@@ -941,7 +944,7 @@ function updateFirstMovement() {
 }
 const keyDirections = { ArrowUp: 0, KeyW: 0, w: 0, W: 0, ArrowRight: 1, KeyD: 1, d: 1, D: 1, ArrowDown: 2, KeyS: 2, s: 2, S: 2, ArrowLeft: 3, KeyA: 3, a: 3, A: 3 };
 document.addEventListener('keydown', e => {
-  if ($('help-dialog').open || e.target instanceof HTMLSelectElement || e.ctrlKey || e.metaKey || e.altKey) return;
+  if ($('help-dialog').open || e.ctrlKey || e.metaKey || e.altKey) return;
   if (keyDirections[e.key] !== undefined) {
     e.preventDefault();
     const direction = keyDirections[e.key];
@@ -973,12 +976,12 @@ $('orbit').onclick = () => switchView('arcade');
 $('first').onclick = () => switchView('first');
 $('play').onclick = start;
 $('pause').onclick = () => { pause(); stage.focus({ preventScroll: true }); };
-$('restart').onclick = () => reset(game.index, false, game.level);
-$('map').onchange = () => reset(Number($('map').value));
+$('restart').onclick = () => reset();
+$('new-run').onclick = () => reset(true);
 $('resume').onclick = () => {
   if (game.status === 'paused') pause();
   else if (game.status === 'won') advanceLevel();
-  else reset(game.index, true);
+  else reset(true);
   stage.focus({ preventScroll: true });
 };
 $('sound').onclick = async () => {
@@ -1087,6 +1090,7 @@ try {
   makeBoard();
   updateUI();
   $('play').disabled = false;
+  $('new-run').disabled = false;
   previousTime = performance.now();
   new ResizeObserver(fitCamera).observe(stage);
   $('scene').addEventListener('webglcontextlost', e => {
@@ -1102,7 +1106,7 @@ try {
   notice.textContent = 'The 3D game could not start. Enable hardware acceleration and WebGL in your browser, then reload this page.';
   stage.append(notice);
   $('play').disabled = true;
-  document.querySelectorAll('#orbit,#first,#map,#pause,#restart,#help').forEach(element => { element.disabled = true; });
+  document.querySelectorAll('#orbit,#first,#new-run,#pause,#restart,#help').forEach(element => { element.disabled = true; });
 }
 }
 void initialize();

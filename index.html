@@ -34,14 +34,14 @@
       </section>
       <section class="game-shell" aria-label="Mona's Merge Maze game">
         <div class="game-toolbar">
-          <div class="map-control"><span class="branch-icon" aria-hidden="true">⑂</span><div><label for="map">REPOSITORY</label><select id="map"><option value="0">Contribution garden</option><option value="1">The call stack</option></select></div><span class="branch-tag" id="branch">main</span></div>
+          <div class="map-control"><span class="branch-icon" aria-hidden="true">⑂</span><div><span class="repository-label">REPOSITORY</span><strong id="repository-name">Contribution garden</strong></div><span class="branch-tag" id="branch">main</span></div>
           <div class="scoreboard"><div><span>SCORE</span><strong id="score">00000</strong></div><div class="best-stat"><span>BEST</span><strong id="best">00000</strong></div><div><span>LIVES</span><strong id="lives" class="lives" aria-label="3 lives">♥ ♥ ♥</strong></div></div>
         </div>
         <div class="playbar">
-          <span class="level-tag" id="level-tag">LEVEL 01 <span>/</span> CONTRIBUTION GARDEN</span>
+          <span class="level-counter" aria-live="polite">LEVEL <strong id="level">01</strong></span>
           <span class="threat-label" id="threat-label">! Bugs: AVOID</span>
           <div class="power-inline" id="power" data-active="false" aria-hidden="true"><span>SUPER MERGE</span><div><i id="power-fill"></i></div><b id="power-time">8.0s</b></div>
-          <div class="stage-buttons"><button id="restart" title="Restart level" aria-label="Restart level">↻</button><button id="pause" title="Pause (P)" aria-label="Pause game">Ⅱ</button></div>
+          <div class="stage-buttons"><button id="new-run" title="Fresh board at level 1; resets score and lives" disabled>New run</button><button id="restart" title="Replay this board; resets score and lives" aria-label="Restart level">↻</button><button id="pause" title="Pause (P)" aria-label="Pause game">Ⅱ</button></div>
         </div>
         <div class="item-statusbar" aria-label="Optional pickup effects">
           <span class="pickup-note">OPTIONAL PICKUPS</span>
@@ -73,7 +73,8 @@
   <dialog id="help-dialog">
     <button id="close-help" class="dialog-close" aria-label="Close instructions">×</button>
     <span class="eyebrow">README.md</span><h2>Welcome to the repo.</h2>
-    <p>Guide Mona the Octocat through two code-filled repository themes with open plazas. Collect every commit to unlock the <b>DEPLOY portal at the north edge</b>. Bugs disappear and a green trail leads you to the exit. Walk through it to advance automatically, keeping your score and remaining lives. Levels 1 and 2 introduce the repositories; from level 3, fresh procedural boards alternate between the two themes. Restart replays the current board with a fresh score and three lives.</p>
+    <p>Guide Mona the Octocat through two code-filled repository themes with open plazas. Collect every commit to unlock the <b>DEPLOY portal at the north edge</b>. Bugs disappear and a green trail leads you to the exit. Walk through it to advance automatically, keeping your score and remaining lives. The level counter tracks your progress; repository themes alternate automatically.</p>
+    <p>The opening run offers two introductory layouts, followed by fresh procedural boards. <b>New run</b> starts immediately at level 1 on a newly generated board, with zero score and three lives. <b>Restart level (↻)</b> replays your exact current board with zero score and three lives. Both clear active power-ups; your best score, camera view, theme, and audio preferences stay unchanged.</p>
     <div class="help-grid">
       <div><h3>Arcade view</h3><p><kbd>WASD</kbd> or arrow keys set your direction. Mona keeps moving; turns are queued for the next junction.</p></div>
       <div><h3>First person</h3><p><kbd>W / ↑</kbd> forward, <kbd>S / ↓</kbd> backward. <kbd>A / ←</kbd> and <kbd>D / →</kbd> turn 90°. Hold to move. The minimap keeps you oriented.</p></div>

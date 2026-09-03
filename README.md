@@ -29,6 +29,8 @@ and rejects ports outside the integer range 1-65535.
 | Switch camera | V |
 | Pause/resume | P or Escape |
 | Start | Enter or the Play button |
+| New run | New run button; fresh generated board at level 1 |
+| Restart level | Circular arrow button; replay the same board |
 | Theme, music, effects | Separate buttons in the header |
 
 Touch controls and the minimap sit outside the game viewport.
@@ -52,19 +54,28 @@ Touch controls and the minimap sit outside the game viewport.
   release, a one-second grace period prevents an immediate collision.
 - Collect every commit to unlock the north deployment portal. Follow the green
   trail and walk through the portal to advance, preserving score and lives.
-- Two repository **themes** alternate, without an upper level limit. Levels 1
-  and 2 retain their introductory layouts. Starting at level 3, deterministic
-  procedural mazes use the run seed and level number for new boards. Open
+- Two repository **themes** alternate automatically, with the current repository
+  name and a prominent level counter above the board instead of a selector.
+  The opening run offers two introductory layouts. Starting at level 3,
+  deterministic procedural mazes use the run seed and level number. Open
   plazas, the connected pen-release ring, and the north portal remain.
 - Every open tile is checked for reachability with the portal locked. Optional
   items never count toward the commit total or gate deployment.
-- Restart replays the current level's board with a fresh score and three lives.
-  Selecting a repository starts its introductory level. A page reload starts
-  a new seeded run; later boards may differ without making enemies faster.
+- **New run** resets to level 1 with zero score and three lives, chooses a new
+  seed, and starts immediately on a fresh procedural board, bypassing the fixed
+  introductions. Subsequent levels remain procedural. Game over offers the
+  same New run action.
+- **Restart level** replays the current level's exact board and item placement
+  with zero score and three lives. Both actions clear effects, while preserving
+  the best score, camera, theme, and audio preferences.
+- A page reload returns to the introductory run; later boards may differ
+  without making enemies faster.
 - For reproducible engine scenarios, use `new Game(index, onEvent, { seed })`.
   `reset(index, level)` rebuilds that exact seeded level. Disconnected generated
   components are joined through interior walls (never the pen or boundary),
   then validated; invalid maps fail explicitly rather than reuse an old board.
+- `newRun(seed)` prepares a procedural run at level 1; call `start()` to play.
+  For direct replay from construction, pass `{ seed, introLayouts: false }`.
 - Best scores and the light/dark preference are saved locally when browser
   storage is available.
 

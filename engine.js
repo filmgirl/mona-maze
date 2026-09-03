@@ -114,13 +114,13 @@ function repairConnectivity(map) {
   validateMap(map);
 }
 
-export function createMap(index, { level = index + 1, seed = 0 } = {}) {
+export function createMap(index, { level = index + 1, seed = 0, introLayouts = true } = {}) {
   if (!Number.isInteger(index) || !MAPS[index]) throw new Error('Invalid map theme index.');
   if (!Number.isSafeInteger(level) || level < 1) throw new Error('Level must be a positive safe integer.');
   const config = MAPS[index];
   const { width: w, height: h } = config;
   const runSeed = normalizeSeed(seed);
-  const mapSeed = level <= 2 ? config.seed : levelSeed(runSeed, level, config.seed);
+  const mapSeed = introLayouts && level <= 2 ? config.seed : levelSeed(runSeed, level, config.seed);
   const rand = random(mapSeed);
   const grid = Array.from({ length: h }, () => Array(w).fill(1));
   const stack = [[1, 1]];
@@ -178,19 +178,25 @@ function actor(x, y, direction = 0) {
 }
 
 export class Game {
-  constructor(index = 0, onEvent = () => {}, { seed = 0 } = {}) {
+  constructor(index = 0, onEvent = () => {}, { seed = 0, introLayouts = true } = {}) {
     this.onEvent = onEvent;
     this.runSeed = normalizeSeed(seed);
+    this.introLayouts = introLayouts;
     this.movementMode = 'arcade';
     this.reset(index);
   }
   reset(index = this.index, level = index + 1) {
     this.initializeLevel(index, level);
   }
+  newRun(seed) {
+    this.runSeed = normalizeSeed(seed);
+    this.introLayouts = false;
+    this.initializeLevel(0, 1);
+  }
   initializeLevel(index, level, score = 0, lives = 3) {
     this.index = index;
     this.level = level;
-    this.map = createMap(index, { level: this.level, seed: this.runSeed });
+    this.map = createMap(index, { level: this.level, seed: this.runSeed, introLayouts: this.introLayouts });
     this.random = random(this.map.seed + 11);
     this.status = 'ready';
     this.score = score;

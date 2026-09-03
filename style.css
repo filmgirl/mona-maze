@@ -62,6 +62,11 @@ html[data-theme="dark"] {
 }
 .playbar .level-tag { padding: 0; background: none; }
 .playbar .stage-buttons { margin-left: auto; }
+.repository-label { display: block; margin-bottom: 6px; font-size: 9px; letter-spacing: 1.5px; color: var(--cp-text-soft); }
+#repository-name { font-size: 14px; font-weight: 650; }
+.level-counter { display: inline-flex; align-items: baseline; gap: 8px; color: var(--cp-text-soft); font-size: 10px; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+.level-counter strong { color: var(--cp-text); font-size: 22px; letter-spacing: 0; }
+.stage-buttons #new-run { width: auto; padding: 0 10px; font-size: 12px; font-weight: 650; color: var(--cp-text); }
 .threat-label { font: 11px Consolas, "Courier New", monospace; color: var(--cp-danger); }
 .threat-label.catchable, #bug-legend.catchable { color: var(--cp-link); }
 .power-inline { display: flex; align-items: center; gap: 8px; color: var(--cp-link); font: 10px Consolas, "Courier New", monospace; }
@@ -157,6 +162,8 @@ html[data-theme="dark"] {
   .topbar .brand svg { width: 28px; height: 28px; }
   .playbar .threat-label { min-width: 116px; }
   .playbar .power-inline { min-width: 156px; }
+  .repository-label { font-size: 8px; letter-spacing: .8px; }
+  #repository-name { font-size: 11px; }
   .item-statusbar { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 8px 12px; }
   .pickup-note { display: none; }
   .item-status { min-width: 0; gap: 5px; font-size: 10px; }
