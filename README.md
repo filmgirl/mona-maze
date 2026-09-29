@@ -7,6 +7,10 @@ and walk through deployment portals to reach the next repository.
 
 Play online at **<https://filmgirl.github.io/mona-maze/>**.
 
+Find more games in **[GitHub Arcade](https://filmgirl.github.io/arcade/)**.
+The game's footer links back to the arcade when played standalone; the link is
+hidden inside an iframe so embedded play stays in the cabinet.
+
 Open **[`dist/mona-merge-maze.html`](dist/mona-merge-maze.html)** directly in a
 modern browser. The game, original chiptune soundtrack, and Mona Sans font are
 embedded in this single file. No network connection is required.

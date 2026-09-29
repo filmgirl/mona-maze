@@ -23,8 +23,44 @@ async function launch(page, baseURL, keyboard = false) {
   expect(await response.body()).toEqual(await readFile('dist/mona-merge-maze.html'));
   const game = page.frameLocator('#frame-host iframe');
   await ready(game);
+  await expect(game.locator('#arcade-link')).toBeHidden();
+  await expect(iframe).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin allow-pointer-lock');
+  await expect(iframe).toHaveAttribute('allow', 'fullscreen; gamepad');
   return game;
 }
+
+async function standaloneBacklink(page) {
+  await page.goto('/mona-maze/');
+  await ready(page);
+  const link = page.getByRole('link', { name: 'GitHub Arcade', exact: true });
+  await expect(link).toHaveAttribute('href', 'https://filmgirl.github.io/arcade/');
+  expect(await link.getAttribute('target')).toBeNull();
+  await reachable(link);
+  expect((await link.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await noHorizontalClipping(page);
+  return link;
+}
+
+test('standalone backlink supports native keyboard navigation without gameplay shortcuts', async ({ page }) => {
+  const link = await standaloneBacklink(page);
+  await page.locator('.brand').focus();
+  for (let index = 0; index < 20; index++) {
+    await page.keyboard.press('Tab');
+    if (await link.evaluate(element => element === document.activeElement)) break;
+  }
+  await expect(link).toBeFocused();
+  expect(await link.evaluate(element => getComputedStyle(element).outlineStyle)).toBe('solid');
+  for (const key of ['v', 'p', 'ArrowUp']) await page.keyboard.press(key);
+  await expect(page.locator('#orbit')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#intro')).toBeVisible();
+  await expect(page.locator('#stage')).not.toHaveClass(/playing/);
+  await expect(page.locator('#message')).toBeHidden();
+  // Keep the candidate gate offline while asserting the native navigation destination.
+  await page.route('https://filmgirl.github.io/arcade/', route =>
+    route.fulfill({ contentType: 'text/html', body: '<title>GitHub Arcade destination</title>' }));
+  await link.press('Enter');
+  await expect(page).toHaveURL('https://filmgirl.github.io/arcade/');
+});
 
 for (const keyboard of [false, true]) {
   test(`${keyboard ? 'keyboard' : 'mouse'} launch, gameplay, preferences and focus exit`, async ({ page, baseURL }) => {
@@ -137,6 +173,13 @@ for (const width of [320, 390]) {
       for (const id of ['return-button', 'reload-game', 'open-game', 'guide-toggle', 'enter-game', 'focus-button', 'fullscreen-button']) {
         await reachable(page.locator(`#${id}`));
       }
+    });
+    test('standalone backlink supports touch navigation without horizontal overflow', async ({ page }) => {
+      const link = await standaloneBacklink(page);
+      await page.route('https://filmgirl.github.io/arcade/', route =>
+        route.fulfill({ contentType: 'text/html', body: '<title>GitHub Arcade destination</title>' }));
+      await link.tap();
+      await expect(page).toHaveURL('https://filmgirl.github.io/arcade/');
     });
   });
 }
