@@ -3,9 +3,9 @@ import { test, expect } from '@playwright/test';
 import { watchHealth, ready, start, moveAndCollect, reachable, noHorizontalClipping } from './helpers.js';
 
 const healthChecks = new WeakMap();
-test.beforeEach(async ({ page, baseURL }) => {
+test.beforeEach(async ({ page, baseURL }, testInfo) => {
   healthChecks.set(page, watchHealth(page, [baseURL]));
-  await page.goto('/arcade/');
+  await page.goto(testInfo.tags.includes('@standalone') ? '/mona-maze/' : '/arcade/');
 });
 test.afterEach(async ({ page }) => healthChecks.get(page)());
 
@@ -30,7 +30,7 @@ async function launch(page, baseURL, keyboard = false) {
 }
 
 async function standaloneBacklink(page) {
-  await page.goto('/mona-maze/');
+  await expect(page).toHaveURL(/\/mona-maze\/$/);
   await ready(page);
   const link = page.getByRole('link', { name: 'GitHub Arcade', exact: true });
   await expect(link).toHaveAttribute('href', 'https://filmgirl.github.io/arcade/');
@@ -41,7 +41,7 @@ async function standaloneBacklink(page) {
   return link;
 }
 
-test('standalone backlink supports native keyboard navigation without gameplay shortcuts', async ({ page }) => {
+test('standalone backlink supports native keyboard navigation without gameplay shortcuts', { tag: '@standalone' }, async ({ page }) => {
   const link = await standaloneBacklink(page);
   await page.locator('.brand').focus();
   for (let index = 0; index < 20; index++) {
@@ -174,7 +174,7 @@ for (const width of [320, 390]) {
         await reachable(page.locator(`#${id}`));
       }
     });
-    test('standalone backlink supports touch navigation without horizontal overflow', async ({ page }) => {
+    test('standalone backlink supports touch navigation without horizontal overflow', { tag: '@standalone' }, async ({ page }) => {
       const link = await standaloneBacklink(page);
       await page.route('https://filmgirl.github.io/arcade/', route =>
         route.fulfill({ contentType: 'text/html', body: '<title>GitHub Arcade destination</title>' }));
