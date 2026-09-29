@@ -190,6 +190,9 @@ html[data-theme="dark"] {
 .shield-icon { color: var(--cp-link); border-radius: 3px 3px 9px 9px; }
 .legend { flex-wrap: wrap; gap: 12px 18px; }
 .controls-hint { flex-shrink: 0; }
+footer { align-items: center; flex-wrap: wrap; gap: 8px 16px; }
+.arcade-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; color: var(--cp-accent); font-size: 12px; font-weight: 650; text-underline-offset: 3px; }
+.arcade-link:hover { color: var(--cp-accent-hover); }
 .notice-line { height: 34px; overflow: hidden; }
 #theme[aria-pressed="true"] { color: var(--cp-accent); border-color: var(--cp-accent); }
 #pen-status { white-space: nowrap; min-width: 52px; }

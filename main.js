@@ -19,6 +19,7 @@ const color = token => C[token.replace('--cp-', '')];
 let dark = document.documentElement.dataset.theme === 'dark';
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const stage = $('stage');
+setHidden('arcade-link', window.self !== window.top);
 let game, renderer, composer, renderPass, bloomPass, board, mona, mascot, portal, portalLight;
 let ghosts = [], pelletMeshes = new Map(), itemMeshes = new Map(), rings = [], sparks = [], sparkField, ambientPixels, playerHalo, shieldHalo, boostHalo, exitRoute;
 let view = 'arcade', facing = 0, cameraYaw = 0, lastStatus = '', toastTimer, audio;
@@ -946,6 +947,7 @@ function updateFirstMovement() {
 const keyDirections = { ArrowUp: 0, KeyW: 0, w: 0, W: 0, ArrowRight: 1, KeyD: 1, d: 1, D: 1, ArrowDown: 2, KeyS: 2, s: 2, S: 2, ArrowLeft: 3, KeyA: 3, a: 3, A: 3 };
 document.addEventListener('keydown', e => {
   if ($('help-dialog').open || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target instanceof Element && e.target.closest('a')) return;
   if (keyDirections[e.key] !== undefined) {
     e.preventDefault();
     const direction = keyDirections[e.key];
